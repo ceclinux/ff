@@ -22,7 +22,8 @@ defmodule FfSwitcher.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      {:yamerl, github: "yakaz/yamerl"}
+      {:yamerl, github: "yakaz/yamerl"},
+      {:domainatrex, "~> 2.1.2"}
     ]
   end
 

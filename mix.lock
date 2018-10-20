@@ -1,4 +1,5 @@
 %{
+  "domainatrex": {:hex, :domainatrex, "2.1.2", "6eef4a16e0df5fdcb13789449ff2d3c3fb0f993aa2caf139646cd5428a585d3e", [:mix], [], "hexpm"},
   "yamerl": {:git, "https://github.com/yakaz/yamerl.git", "4e5a54a5a4a0cd9dc8ee30c8356642e9a2c3a443", []},
   "yamlrl": {:git, "https://github.com/yakaz/yamerl.git", "4e5a54a5a4a0cd9dc8ee30c8356642e9a2c3a443", []},
 }

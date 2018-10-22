@@ -1,8 +1,8 @@
 defmodule FfSwitcher do
+  alias FfSwitcher.ConfigParser
   import System
 
   @window_map "window_map.json"
-  @domain_config "config.yaml" 
 
   @moduledoc """
   Documentation for FfSwitcher.
@@ -13,20 +13,10 @@ defmodule FfSwitcher do
 
   """
   def main([query | _] \\ []) do
-    %URI{path: path} = URI.parse(query)
-    {type, formatted_query} = get_url(path)
 
-    config = parse_config
-
-    query_group =
-      case type do
-        :domain -> match_query_group(config, to_charlist formatted_query)
-        _ -> :search
-      end
-    IO.puts "the group is #{query_group}"
-
+    query_group = ConfigParser.get_query_group query
     clear_closed_groups
-    open(query_group, query)
+    open query_group, query
   end
 
   def clear_closed_groups do
@@ -39,7 +29,7 @@ defmodule FfSwitcher do
     end
     need_to_be_deleted = window_list -- opened_window_list;
     to_be_deleted = Enum.map need_to_be_deleted, fn x -> get_key_from_value window_map,x end
-    
+
     new_window_map = Map.drop window_map, to_be_deleted
     IO.inspect new_window_map
     {:ok, new_window_map_encoded} = Poison.encode(new_window_map)
@@ -67,10 +57,6 @@ defmodule FfSwitcher do
 
   defp focus_window_id(window_id) do
     cmd("xdotool", ["windowactivate", window_id])
-  end
-
-  defp parse_config do
-    List.flatten(:yamerl_constr.file(@domain_config))
   end
 
   def search_window_id_by_group(group) do
@@ -103,30 +89,6 @@ defmodule FfSwitcher do
   def open_firefox do
     cmd("firefox", [])
   end
-
-  defp match_query_group([{group_name, [first_url | _]} | _], query) when query == first_url do
-    List.to_atom group_name
-  end
-
-  defp match_query_group([{group_name, [first_url | others_urls]} | other_groups], query) when query != first_url do
-    match_query_group([{group_name, others_urls} | other_groups], query)
-  end
-
-  defp match_query_group([{group_name, []} | other_groups], query) do
-    match_query_group(other_groups, query)
-  end
-
-  defp match_query_group([], query) do
-    :other
-  end
-
-  defp get_url(path) do
-    case Domainatrex.parse(path) do
-      {:ok, %{domain: domain, tld: tld}} -> {:domain, domain <> "." <> tld}
-      {:error, _} -> {:non_domain, path}
-    end
-  end
-
   def open_firefox do
     cmd("firefox", [])
   end
@@ -150,13 +112,6 @@ defmodule FfSwitcher do
   defp get_url(path) do
     case Domainatrex.parse(path) do
       {:ok, %{domain: domain, tld: tld}} -> {:domain, domain <> "." <> tld}
-      {:error, _} -> {:non_domain, path}
-    end
-  end
-
-  defp get_url(path) do
-    case Domainatrex.parse(path) do
-      {:ok, %{domain: domain, tld: tld}} -> {:domain, domain <> tld}
       {:error, _} -> {:non_domain, path}
     end
   end

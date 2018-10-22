@@ -1,5 +1,9 @@
 defmodule FfSwitcher do
   import System
+
+  @window_map "window_map.json"
+  @domain_config "config.yaml" 
+
   @moduledoc """
   Documentation for FfSwitcher.
   """
@@ -19,31 +23,46 @@ defmodule FfSwitcher do
         :domain -> match_query_group(config, to_charlist formatted_query)
         _ -> :search
       end
-    IO.puts query_group
+    IO.puts "the group is #{query_group}"
 
+    clear_closed_groups
     open(query_group, query)
   end
 
-  def open_and_get_new_firefox_window_id do
-    spawn fn -> cmd("firefox", []) end 
-    :timer.sleep(1000)
-    {window_list1, 0} = cmd("xdotool", ["search", "--classname", "Navigator"])
-    {window_list2, 0} = cmd("xdotool", ["search", "--class", "Firefox"])
-    l1 = String.split window_list1
-    l2 = String.split window_list2
-    
-    IO.inspect l1
-    IO.inspect l2
-     [window_id | _] = (l1 -- (l1 -- l2))
-    IO.puts "hrereer"
-    IO.puts window_id
+  def clear_closed_groups do
+    window_map = get_window_map
+    window_list = Map.values window_map
 
-     window_id
+    opened_window_list= case cmd("xdotool", ["search", "--classname", "Navigator"]) do 
+      {t, 0} -> String.split t
+      {_, 1} -> []
+    end
+    need_to_be_deleted = window_list -- opened_window_list;
+    to_be_deleted = Enum.map need_to_be_deleted, fn x -> get_key_from_value window_map,x end
+    
+    new_window_map = Map.drop window_map, to_be_deleted
+    IO.inspect new_window_map
+    {:ok, new_window_map_encoded} = Poison.encode(new_window_map)
+    IO.inspect new_window_map_encoded
+    File.write @window_map, new_window_map_encoded 
+    new_window_map
   end
 
-  defp set_name_for_firefox_window(window_id, name) do
-    t = cmd("xdotool", ["set_window", "--name", name, window_id])
-    IO.inspect t
+  def get_key_from_value(map, value) do
+    map
+    |> Enum.find(fn {key, val} -> val == value end)
+    |> elem(0)
+  end
+
+  def open_and_get_new_firefox_window_id do
+    spawn fn -> cmd("firefox", []) end
+    :timer.sleep(1000)
+    {opened_window_list, 0} = cmd("xdotool", ["search", "--classname", "Navigator"])
+    window_map = get_window_map
+    IO.puts "here"
+    IO.inspect window_map
+    [new_window_id] = (String.split opened_window_list) -- (Map.values window_map)
+    new_window_id
   end
 
   defp focus_window_id(window_id) do
@@ -51,16 +70,60 @@ defmodule FfSwitcher do
   end
 
   defp parse_config do
-    List.flatten(:yamerl_constr.file("config.yaml"))
+    List.flatten(:yamerl_constr.file(@domain_config))
   end
 
-
   def search_window_id_by_group(group) do
-    IO.puts to_string group
-    IO.puts "group"
-    case cmd("xdotool", ["search", "--name", to_string group]) do
-      {group_id, 0} -> List.first(String.split group_id)
-      {_, 1}        -> window_id = open_and_get_new_firefox_window_id; IO.puts "here window_id"; IO.inspect window_id; set_name_for_firefox_window(window_id, to_string group);window_id
+    window_map = get_window_map
+    case Map.fetch window_map,(to_string group) do
+      {:ok, value} -> value
+      :error -> new_window_id = open_and_get_new_firefox_window_id;update_window_map(new_window_id, group);new_window_id
+    end
+  end
+
+  def get_window_map do
+    {:ok, map_file} = File.open @window_map
+    {:ok, window_map} =  Poison.decode(IO.read(map_file, :all))
+    File.close map_file
+    window_map
+  end
+
+  def update_window_map(window_id, group) do
+    {:ok, map_file} = File.open @window_map
+    {:ok, window_map} =  Poison.decode(IO.read(map_file, :all))
+    File.close map_file
+    new_window_map = Map.put window_map, group, window_id 
+    IO.inspect new_window_map
+    {:ok, new_window_map_encoded} = Poison.encode(new_window_map)
+    IO.inspect new_window_map_encoded
+    File.write @window_map, new_window_map_encoded 
+    new_window_map
+  end
+
+  def open_firefox do
+    cmd("firefox", [])
+  end
+
+  defp match_query_group([{group_name, [first_url | _]} | _], query) when query == first_url do
+    List.to_atom group_name
+  end
+
+  defp match_query_group([{group_name, [first_url | others_urls]} | other_groups], query) when query != first_url do
+    match_query_group([{group_name, others_urls} | other_groups], query)
+  end
+
+  defp match_query_group([{group_name, []} | other_groups], query) do
+    match_query_group(other_groups, query)
+  end
+
+  defp match_query_group([], query) do
+    :other
+  end
+
+  defp get_url(path) do
+    case Domainatrex.parse(path) do
+      {:ok, %{domain: domain, tld: tld}} -> {:domain, domain <> "." <> tld}
+      {:error, _} -> {:non_domain, path}
     end
   end
 

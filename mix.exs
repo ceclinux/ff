@@ -23,7 +23,8 @@ defmodule FfSwitcher.MixProject do
   defp deps do
     [
       {:yamerl, github: "yakaz/yamerl"},
-      {:domainatrex, "~> 2.1.2"}
+      {:domainatrex, "~> 2.1.2"},
+      {:poison, "~> 3.1"}
     ]
   end
 

@@ -14,28 +14,23 @@ defmodule FfSwitcher.Firefox do
       end
 
     need_to_be_deleted = window_list -- opened_window_list
-    to_be_deleted = Enum.map(need_to_be_deleted, fn x -> get_key_from_value(window_map, x) end)
+    to_be_deleted = Enum.map(need_to_be_deleted, &get_key_from_value(window_map, &1))
 
     new_window_map = Map.drop(window_map, to_be_deleted)
-    IO.inspect(new_window_map)
     {:ok, new_window_map_encoded} = Poison.encode(new_window_map)
-    IO.inspect(new_window_map_encoded)
     File.write(@window_map, new_window_map_encoded)
     new_window_map
   end
 
   defp get_window_map do
-    {:ok, map_file} = File.open(@window_map)
-    {:ok, window_map} = Poison.decode(IO.read(map_file, :all))
+    map_file = @window_map |> File.open!
+    window_map = map_file |> IO.read(:all) |> Poison.decode!
     File.close(map_file)
     window_map
   end
 
   def search_window_id_by_group(group) do
     window_map = get_window_map
-
-    IO.puts "window_map"
-    IO.inspect(window_map)
 
     case Map.fetch(window_map, to_string(group)) do
       {:ok, value} ->
@@ -49,14 +44,12 @@ defmodule FfSwitcher.Firefox do
   end
 
   def open(:search, search_query) do
-    window_id = search_window_id_by_group(:search)
-    focus_window_id(window_id)
+    search_window_id_by_group(:search) |> focus_window_id
     cmd("firefox", ["www.google.com/search?q=#{search_query}"])
   end
 
   def open(group, query) do
-    window_id = search_window_id_by_group(group)
-    focus_window_id(window_id)
+    search_window_id_by_group(group) |> focus_window_id
     cmd("firefox", [query])
   end
 
@@ -65,20 +58,14 @@ defmodule FfSwitcher.Firefox do
   end
 
   defp update_window_map(window_id, group) do
-    {:ok, map_file} = File.open(@window_map)
-    {:ok, window_map} = Poison.decode(IO.read(map_file, :all))
-    File.close(map_file)
-    new_window_map = Map.put(window_map, group, window_id)
-    IO.inspect(new_window_map)
-    {:ok, new_window_map_encoded} = Poison.encode(new_window_map)
-    IO.inspect(new_window_map_encoded)
-    File.write(@window_map, new_window_map_encoded)
-    new_window_map
+    window_map = get_window_map
+    new_window_map_encoded = Map.put(window_map, group, window_id) |> Poison.encode!
+    File.write!(@window_map, new_window_map_encoded)
   end
 
-  def get_key_from_value(map, value) do
+  defp get_key_from_value(map, value) do
     map
-    |> Enum.find(fn {key, val} -> val == value end)
+    |> Enum.find(fn {_, val} -> val == value end)
     |> elem(0)
   end
 

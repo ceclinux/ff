@@ -1,7 +1,6 @@
 defmodule FfSwitcher do
   alias FfSwitcher.ConfigParser
   alias FfSwitcher.Firefox
-  import System
 
   @moduledoc """
   Documentation for FfSwitcher.
